@@ -20,6 +20,7 @@ download_all = str(input('Please select. Download all pages the manga ? - Y/n ')
 zip_archive = str(input('Please select. Create a zip archive ? - Y/n '))
 to_gray = str(input('Please select. Monochrome images ? - Y/n '))
 full_name_img = str(input('Please select. Full name images ? - Y/n '))
+time_to_sleep = int(input('Please enter your sleep time - '))
 
 print('\nThe download will start soon!')
 
@@ -27,7 +28,10 @@ if download_all == 'Y':
     if 'mintmanga' in url:
         url_accept = url[:url.find('/vol')] + '?mtr=1'
     else:
-        url_accept = url[:url.find('/vol')]
+        if '?mtr=1' in url:
+            url_accept = url[:url.find('/vol')] + '?mtr=1'
+        else:
+            url_accept = url[:url.find('/vol')]
 
     driver.get(url_accept)
 
@@ -65,6 +69,7 @@ except FileExistsError:
     pass
 
 while True:
+    time.sleep(time_to_sleep)
     source_page = BeautifulSoup(driver.page_source, 'html.parser')
     try:
         page_name = str(source_page.find('h1').text)
