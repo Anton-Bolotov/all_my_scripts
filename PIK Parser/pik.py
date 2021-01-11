@@ -3,13 +3,13 @@ import datetime
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 
 driver = webdriver.Chrome()
 driver.get('https://www.pik.ru/projects')
-time.sleep(2)
+time.sleep(3)
 soup_for_search_links = BeautifulSoup(driver.page_source, 'html.parser')
-project_urls = soup_for_search_links.find_all('a', attrs={'class': 'styles__Project-sc-15y9oll-1 hnKNUU'})
+project_urls = soup_for_search_links.find_all('a', attrs={'target': '_self'})
+
 
 SCROLL_PAUSE_TIME = 3
 now = datetime.datetime.now()
@@ -24,68 +24,74 @@ with open(file=file_name, mode='w', encoding='utf-8') as file:
                + 'Заселение\t' + 'Отделка\t' + 'Полная цена\t' + 'Примерный ипотечный платеж\t'
                + 'Цена за м²\t' + 'Полная цена 2\n')
 count = 0
-for line in project_urls:
-    count += 1
-    search_url = 'https://www.pik.ru/search' + line['href']
-    date = BeautifulSoup(str(line), 'html.parser')
+try:
+    for line in project_urls:
+        if 'src=' in str(line):
+            count += 1
+            search_url = 'https://www.pik.ru/search' + line['href']
+            date = BeautifulSoup(str(line), 'html.parser')
+            project_name = date.find('h6').text
+            project_mortgage = str(date).split('newPriceFormatTestB" type="micro">')[1].split('.</span></div>')[0]
+            project_metro = str(date).split('Typography" type="subTitleTwo">')[1].split('</span></div><div class="')[0]
+            project_walking_or_bus = str(date).split('Icons" id="" type="')[1].split('"><svg viewbox=')[0].replace('walkingMan', 'Пешком').replace('bus', 'Транспортом')
+            project_time = str(date).split('Typography" type="micro">')[1].split('</span></div><div class="')[0]
+            project_price = str(date).split('newPriceFormatTestA" type="micro">')[1].split('</span><span class="')[0]
+            driver.set_window_size(300, 1080)
+            driver.get(search_url)
+            time.sleep(3)
 
-    project_name = date.find('h6', attrs={'class': 'sc-bdVaJa hPmloc Typography'}).text
-    project_metro = date.find('span', attrs={'class': 'sc-bdVaJa jmcaIA Typography'}).text
-    project_walking_or_bus = date.find('div', attrs={'class': 'sc-ifAKCX gWhHCO Icons'})['type'].replace('walkingMan',
-                                                                                                         'Пешком').replace(
-        'bus', 'Транспортом')
-    project_time = date.find('span', attrs={'class': 'sc-bdVaJa bFHpWm Typography'}).text
-    project_price = date.find('span', attrs={'class': 'sc-bdVaJa dNFKvG Typography newPriceFormatTestA'}).text
-    project_mortgage = date.find('span', attrs={'class': 'sc-bdVaJa dNFKvG Typography newPriceFormatTestB'}).text
+            last_height = driver.execute_script("return document.body.scrollHeight")
 
-    driver.get(search_url)
+            while True:
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(SCROLL_PAUSE_TIME)
+                new_height = driver.execute_script("return document.body.scrollHeight")
+                if new_height == last_height:
+                    break
+                last_height = new_height
 
-    last_height = driver.execute_script("return document.body.scrollHeight")
+            time.sleep(3)
+            soup_for_rooms = BeautifulSoup(driver.page_source, 'html.parser')
+            project_flats = soup_for_rooms.find_all('a', attrs={'target': '_blank'})
 
-    while True:
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(SCROLL_PAUSE_TIME)
-        new_height = driver.execute_script("return document.body.scrollHeight")
-        if new_height == last_height:
-            break
-        last_height = new_height
+            for project_flat in project_flats:
+                if 'Typography' in str(project_flat):
+                    date_flat = BeautifulSoup(str(project_flat), 'html.parser')
+                    # print(date_flat)
+                    if 'type="lock"' in str(project_flat):
+                        project_lock = 'Квартира забронирована'
+                    else:
+                        project_lock = 'Квартира свободная'
 
-    soup_for_rooms = BeautifulSoup(driver.page_source, 'html.parser')
-    project_flats = soup_for_rooms.find_all('div', attrs={'class': 'sc-dEfkYy jRtlGa'})
+                    project_flat_url = 'https://www.pik.ru' + date_flat.find('a')['href']
 
-    for project_flat in project_flats:
-        date_flat = BeautifulSoup(str(project_flat), 'html.parser')
+                    project_location = str(date_flat).split('Typography" type="caption">')[1].split('</span></div><div class="')[0]
 
-        if 'type="lock"' in str(project_flat):
-            project_lock = 'Квартира забронирована'
-        else:
-            project_lock = 'Квартира свободная'
+                    try:
+                        project_body, project_section, project_floor = project_location.split(', ')
+                    except ValueError:
+                        project_body = project_section = project_floor = project_location
 
-        project_flat_url = 'https://www.pik.ru' + date_flat.find('a', attrs={'class': 'sc-cqPOvA jnHgMU'})['href']
-        project_location = date_flat.find('div', attrs={'class': 'sc-fjhmcy ifEfmX'}).text
+                    project_room_size = date_flat.find('h6').text
+                    project_flat_type, project_flat_footage, *_ = project_room_size.split(' ')
+                    project_settlement = str(date_flat).split('Typography" type="caption">')[2].split('</span>')[0]
+                    project_finish = str(date_flat).split('Typography" type="micro">')[1].split('</span></span></div></div></div><div class="')[0]
+                    project_full_price_1 = str(date_flat).split('type="subTitleOne">')[1].split('</span></div><div class="')[0]
+                    project_price_per_month = str(date_flat).split('type="subTitleOne">')[2].split('</span></div><div class="')[0]
+                    project_price_m2 = str(date_flat).split('Typography" type="micro">')[2].split('</span>')[0]
+                    project_full_price_2 = str(date_flat).split('Typography" type="micro">')[3].split('</span>')[0]
 
-        try:
-            project_body, project_section, project_floor = project_location.split(', ')
-        except ValueError:
-            project_body = project_section = project_floor = project_location
+                    with open(file=file_name, mode='a', encoding='utf-8') as file:
+                        file.write(project_name + '\t' + project_metro + '\t' + project_walking_or_bus + '\t' + project_time
+                                   + '\t' + project_price + '\t' + project_mortgage + '\t' + project_lock + '\t' + project_flat_url
+                                   + '\t' + project_body + '\t' + project_section + '\t' + project_floor + '\t' + project_flat_type
+                                   + '\t' + project_flat_footage + '\t' + project_settlement + '\t' + project_finish
+                                   + '\t' + project_full_price_1 + '\t' + project_price_per_month + '\t' + project_price_m2
+                                   + '\t' + project_full_price_2 + '\n')
 
-        project_room_size = date_flat.find('div', attrs={'class': 'sc-iuDHTM bKufRk'}).text
-        project_flat_type, project_flat_footage, *_ = project_room_size.split(' ')
-        project_settlement = date_flat.find('div', attrs={'class': 'sc-erNlkL bSiriq'}).text
-        project_finish = date_flat.find('div', attrs={'class': 'sc-kEmuub kYCymK'}).text
-        project_full_price_1 = date_flat.find('div', attrs={'class': 'sc-dznXNo hKrVhA newPriceFormatTestA'}).text
-        project_price_per_month = date_flat.find('div', attrs={'class': 'sc-dznXNo hKrVhA newPriceFormatTestB'}).text
-        project_price_m2 = date_flat.find('div', attrs={'class': 'sc-bbkauy jVNgZy newPriceFormatTestA'}).text
-        project_full_price_2 = date_flat.find('div', attrs={'class': 'sc-bbkauy jVNgZy newPriceFormatTestB'}).text
+            print(f'Пройдено {project_name} - {count} из 56')
 
-        with open(file=file_name, mode='a', encoding='utf-8') as file:
-            file.write(project_name + '\t' + project_metro + '\t' + project_walking_or_bus + '\t' + project_time
-                       + '\t' + project_price + '\t' + project_mortgage + '\t' + project_lock + '\t' + project_flat_url
-                       + '\t' + project_body + '\t' + project_section + '\t' + project_floor + '\t' + project_flat_type
-                       + '\t' + project_flat_footage + '\t' + project_settlement + '\t' + project_finish
-                       + '\t' + project_full_price_1 + '\t' + project_price_per_month + '\t' + project_price_m2
-                       + '\t' + project_full_price_2 + '\n')
-
-    print(f'Пройдено {project_name} - {count} из 56')
+except AttributeError:
+    pass
 
 driver.quit()
